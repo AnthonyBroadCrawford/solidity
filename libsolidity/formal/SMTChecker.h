@@ -64,6 +64,7 @@ private:
 	virtual void endVisit(TupleExpression const& _node) override;
 	virtual void endVisit(UnaryOperation const& _node) override;
 	virtual void endVisit(BinaryOperation const& _node) override;
+	virtual bool visit(FunctionCall const& _node) override;
 	virtual void endVisit(FunctionCall const& _node) override;
 	virtual void endVisit(Identifier const& _node) override;
 	virtual void endVisit(Literal const& _node) override;
@@ -154,6 +155,13 @@ private:
 	/// Creates the expression and sets its value.
 	void defineExpr(Expression const& _e, smt::Expression _value);
 
+	/// Declares an SMT function
+	void declareFunction(FunctionDefinition const& _fun);
+	/// Returns the SMT function
+	smt::Expression function(FunctionDefinition const& _fun);
+	smt::Sort SMTSort(Type const& _type);
+	smt::Sort SMTSort(Type::Category const& _category);
+
 	/// Adds a new path condition
 	void pushPathCondition(smt::Expression const& _e);
 	/// Remove the last path condition
@@ -175,8 +183,9 @@ private:
 	std::shared_ptr<smt::SolverInterface> m_interface;
 	std::shared_ptr<VariableUsage> m_variableUsage;
 	bool m_loopExecutionHappened = false;
-	std::map<Expression const*, smt::Expression> m_expressions;
+	std::multimap<Expression const*, smt::Expression> m_expressions;
 	std::map<VariableDeclaration const*, SSAVariable> m_variables;
+	std::map<FunctionDefinition const*, smt::Expression> m_functions;
 	std::vector<smt::Expression> m_pathConditions;
 	ErrorReporter& m_errorReporter;
 
@@ -184,6 +193,7 @@ private:
 	std::vector<std::vector<smt::Expression>> m_functionArguments;
 	std::vector<smt::Expression> m_functionReturn;
 	bool isRootFunction();
+	bool visitedFunction(FunctionDefinition const*);
 };
 
 }
