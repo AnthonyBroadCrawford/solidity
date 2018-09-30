@@ -70,12 +70,12 @@ Running the compiler tests
 ==========================
 
 Solidity includes different types of tests. They are included in the application
-called ``soltest``. Some of them require the ``cpp-ethereum`` client in testing mode,
-some others require ``libz3`` to be installed.
+called ``soltest``. Some of them require you to have the ``cpp-ethereum`` client
+installed in testing mode, others require ``libz3``.
 
 ``soltest`` reads test contracts that are annotated with expected results
-stored in ``./test/libsolidity/syntaxTests``. In order for soltest to find these
-tests the root test directory has to be specified using the ``--testpath`` command
+stored in ``./test/libsolidity/syntaxTests``. For soltest to find these
+tests you have to specify the root test directory using the ``--testpath`` command
 line option, e.g. ``./build/test/soltest -- --testpath ./test``.
 
 To disable the z3 tests, use ``./build/test/soltest -- --no-smt --testpath ./test`` and
@@ -84,27 +84,27 @@ to run a subset of the tests that do not require ``cpp-ethereum``, use
 
 For all other tests, you need to install `cpp-ethereum <https://github.com/ethereum/cpp-ethereum/releases/download/solidityTester/eth>`_ and run it in testing mode: ``eth --test -d /tmp/testeth``.
 
-Then you run the actual tests: ``./build/test/soltest -- --ipcpath /tmp/testeth/geth.ipc --testpath ./test``.
+To run the actual tests, use: ``./build/test/soltest -- --ipcpath /tmp/testeth/geth.ipc --testpath ./test``.
 
-To run a subset of tests, filters can be used:
+To run a subset of tests, you can use filters:
 ``soltest -t TestSuite/TestName -- --ipcpath /tmp/testeth/geth.ipc --testpath ./test``,
 where ``TestName`` can be a wildcard ``*``.
 
 Alternatively, there is a testing script at ``scripts/tests.sh`` which executes all tests and runs
 ``cpp-ethereum`` automatically if it is in the path (but does not download it).
 
-Travis CI even runs some additional tests (including ``solc-js`` and testing third party Solidity frameworks) that require compiling the Emscripten target.
+Travis CI runs some additional tests (including ``solc-js`` and testing third party Solidity frameworks) that require compiling the Emscripten target.
 
 .. note ::
 
-    While any version of ``cpp-ethereum`` should be usable, this cannot be guaranteed, and it is suggested to use the same version that is used by the Solidity continuous integration tests.
+    While any version of ``cpp-ethereum`` should be usable, it is not guaranteed, and we suggest you use the same version used by the Solidity continuous integration tests.
     Currently the CI uses ``d661ac4fec0aeffbedcdc195f67f5ded0c798278`` of ``cpp-ethereum``.
 
 Writing and running syntax tests
 --------------------------------
 
 As mentioned above, syntax tests are stored in individual contracts. These files must contain annotations, stating the expected result(s) of the respective test.
-The test suite will compile and check them against the given expectations.
+The test suite compiles and checks them against the given expectations.
 
 Example: ``./test/libsolidity/syntaxTests/double_stateVariable_declaration.sol``
 
@@ -117,12 +117,12 @@ Example: ``./test/libsolidity/syntaxTests/double_stateVariable_declaration.sol``
     // ----
     // DeclarationError: Identifier already declared.
 
-A syntax test must contain at least the contract under test itself, followed by the separator ``----``. The additional comments above are used to describe the
+A syntax test must contain at least the contract under test itself, followed by the separator ``----``. The additional comments above describe the
 expected compiler errors or warnings. This section can be empty in case that the contract should compile without any errors or warnings.
 
-In the above example, the state variable ``variable`` was declared twice, which is not allowed. This will result in a ``DeclarationError`` stating that the identifier was already declared.
+In the above example, the state variable ``variable`` was declared twice, which is not allowed. This results in a ``DeclarationError`` stating that the identifier was already declared.
 
-The tool that is being used for those tests is called ``isoltest`` and can be found under ``./test/tools/``. It is an interactive tool which allows
+The ``isoltest`` tool is used for these tests and you can find it under ``./test/tools/``. It is an interactive tool which allows
 editing of failing contracts using your preferred text editor. Let's try to break this test by removing the second declaration of ``variable``:
 
 ::
@@ -133,7 +133,7 @@ editing of failing contracts using your preferred text editor. Let's try to brea
     // ----
     // DeclarationError: Identifier already declared.
 
-Running ``./test/isoltest`` again will result in a test failure:
+Running ``./test/isoltest`` again results in a test failure:
 
 ::
 
@@ -149,15 +149,15 @@ Running ``./test/isoltest`` again will result in a test failure:
             Success
 
 
-which prints the expected result next to the obtained result, but also provides a way to change edit / update / skip the current contract or to even quit.
+Which prints the expected result next to the obtained result, but also provides a way to change edit / update / skip the current contract or to even quit.
 ``isoltest`` offers several options for failing tests:
 
-- edit: ``isoltest`` will try to open the editor that was specified before using ``isoltest --editor /path/to/editor``. If no path was set, this will result in a runtime error. In case an editor was specified, this will open it such that the contract can be adjusted.
-- update: Updates the contract under test. This will either remove the annotation which contains the exception not met or will add missing expectations. The test will then be run again.
+- edit: ``isoltest`` tries to open the editor specified before using ``isoltest --editor /path/to/editor``. If no path was set, this results in a runtime error. In case an editor was specified, this opens it so you can edit the contract.
+- update: Updates the contract under test. This either removes the annotation which contains the exception not met or adds missing expectations. The test then runs again.
 - skip: Skips the execution of this particular test.
 - quit: Quits ``isoltest``.
 
-Automatically updating the test above will change it to
+Automatically update the test above, and change it to:
 
 ::
 
@@ -166,7 +166,7 @@ Automatically updating the test above will change it to
     }
     // ----
 
-and re-run the test. It will now pass again:
+and re-run the test. It now passes again:
 
 ::
 
@@ -176,7 +176,7 @@ and re-run the test. It will now pass again:
 
 .. note::
 
-    Please choose a name for the contract file, that is self-explainatory in the sense of what is been tested, e.g. ``double_variable_declaration.sol``.
+    Choose a name for the contract file that is self-explanatory in the sense of what it is testing, e.g. ``double_variable_declaration.sol``.
     Do not put more than one contract into a single file. ``isoltest`` is currently not able to recognize them individually.
 
 
