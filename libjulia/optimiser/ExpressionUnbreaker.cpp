@@ -1,0 +1,166 @@
+/*
+	This file is part of solidity.
+
+	solidity is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	solidity is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+*/
+/**
+ * Optimiser component that undoes what the ExpressionUnbreaker did, i.e.
+ * it more or less inlines variable declarations.
+ */
+
+#include <libjulia/optimiser/ExpressionUnbreaker.h>
+
+#include <libjulia/optimiser/ASTCopier.h>
+#include <libjulia/optimiser/ASTWalker.h>
+#include <libjulia/optimiser/NameCollector.h>
+#include <libjulia/optimiser/Utilities.h>
+#include <libjulia/Exceptions.h>
+
+
+#include <libsolidity/inlineasm/AsmData.h>
+
+#include <libdevcore/CommonData.h>
+
+#include <boost/range/adaptor/reversed.hpp>
+
+using namespace std;
+using namespace dev;
+using namespace dev::julia;
+using namespace dev::solidity;
+
+ExpressionUnbreaker::ExpressionUnbreaker(Block& _ast)
+{
+	ReferencesCounter counter;
+	counter(_ast);
+	m_references = counter.references();
+}
+
+void ExpressionUnbreaker::operator()(FunctionalInstruction& _instruction)
+{
+	handleArguments(_instruction.arguments);
+}
+
+void ExpressionUnbreaker::operator()(FunctionCall& _funCall)
+{
+	handleArguments(_funCall.arguments);
+}
+
+void ExpressionUnbreaker::operator()(If& _if)
+{
+	visit(*_if.condition);
+	(*this)(_if.body);
+}
+
+void ExpressionUnbreaker::operator()(Switch& _switch)
+{
+	visit(*_switch.expression);
+	for (auto& _case: _switch.cases)
+		// Do not visit the case expression, nothing to unbreak there.
+		(*this)(_case.body);
+}
+
+void ExpressionUnbreaker::operator()(Block& _block)
+{
+	resetLatestStatementPointer();
+	for (size_t i = 0; i < _block.statements.size(); ++i)
+	{
+		visit(_block.statements[i]);
+		m_currentBlock = &_block;
+		m_latestStatementInBlock = i;
+	}
+
+	removeEmptyBlocks(_block);
+	resetLatestStatementPointer();
+}
+
+void ExpressionUnbreaker::visit(Expression& _e)
+{
+	if (_e.type() == typeid(Identifier))
+	{
+		Identifier const& identifier = boost::get<Identifier>(_e);
+		if (isLatestStatementVarDeclOf(identifier) && m_references[identifier.name] == 1)
+		{
+			VariableDeclaration& varDecl = boost::get<VariableDeclaration>(*latestStatement());
+			assertThrow(varDecl.variables.size() == 1, OptimizerException, "");
+			assertThrow(varDecl.value, OptimizerException, "");
+
+			_e = std::move(*varDecl.value);
+			*latestStatement() = Block();
+
+			decrementLatestStatementPointer();
+		}
+	}
+	else
+		ASTModifier::visit(_e);
+}
+
+void ExpressionUnbreaker::handleArguments(vector<Expression>& _arguments)
+{
+	// We have to fill from left to right, but we can only
+	// fill if everything to the right is just an identifier
+	// or a literal.
+	// Also we only descend into function calls if everything
+	// on the right is an identifier or literal.
+
+	size_t numVarsOrLitsOnRight = 0;
+	for (; numVarsOrLitsOnRight < _arguments.size(); ++numVarsOrLitsOnRight)
+	{
+		Expression& arg = _arguments.at(_arguments.size() - numVarsOrLitsOnRight - 1);
+		if (arg.type() != typeid(Identifier) && arg.type() != typeid(Literal))
+			break;
+	}
+
+	// Start with the last argument that is not a variable or literal.
+	size_t i = _arguments.size() - numVarsOrLitsOnRight;
+	if (i > 0)
+		--i;
+
+	for (; i < _arguments.size(); ++i)
+		visit(_arguments.at(i));
+}
+
+void ExpressionUnbreaker::decrementLatestStatementPointer()
+{
+	if (!m_currentBlock)
+		return;
+	if (m_latestStatementInBlock > 0)
+		--m_latestStatementInBlock;
+	else
+		resetLatestStatementPointer();
+}
+
+void ExpressionUnbreaker::resetLatestStatementPointer()
+{
+	m_currentBlock = nullptr;
+	m_latestStatementInBlock = size_t(-1);
+}
+
+Statement* ExpressionUnbreaker::latestStatement()
+{
+	if (!m_currentBlock)
+		return nullptr;
+	else
+		return &m_currentBlock->statements.at(m_latestStatementInBlock);
+}
+
+bool ExpressionUnbreaker::isLatestStatementVarDeclOf(Identifier const& _identifier)
+{
+	Statement const* statement = latestStatement();
+	if (!statement || statement->type() != typeid(VariableDeclaration))
+		return false;
+	VariableDeclaration const& varDecl = boost::get<VariableDeclaration>(*statement);
+	if (varDecl.variables.size() != 1 || !varDecl.value)
+		return false;
+	return varDecl.variables.at(0).name == _identifier.name;
+}
