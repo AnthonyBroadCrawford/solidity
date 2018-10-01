@@ -93,6 +93,7 @@ bool dev::passesAddressChecksum(string const& _str, bool _strict)
 string dev::getChecksummedAddress(string const& _addr)
 {
 	string s = _addr.substr(0, 2) == "0x" ? _addr.substr(2) : _addr;
+	boost::erase_all(s, "_");
 	assertThrow(s.length() == 40, InvalidAddress, "");
 	assertThrow(s.find_first_not_of("0123456789abcdefABCDEF") == string::npos, InvalidAddress, "");
 

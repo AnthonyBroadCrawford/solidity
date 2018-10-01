@@ -23,6 +23,7 @@
 #include <libsolidity/analysis/TypeChecker.h>
 #include <memory>
 #include <boost/algorithm/cxx11/all_of.hpp>
+#include <boost/algorithm/string/erase.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/range/adaptor/reversed.hpp>
@@ -2398,11 +2399,12 @@ void TypeChecker::endVisit(Literal const& _literal)
 		_literal.annotation().type = make_shared<AddressType>(StateMutability::Payable);
 
 		string msg;
-		if (_literal.value().length() != 42) // "0x" + 40 hex digits
+		string const xdigits = boost::erase_all_copy(_literal.value(), "_");
+		if (xdigits.length() != 42) // "0x" + 40 hex digits
 			// looksLikeAddress enforces that it is a hex literal starting with "0x"
 			msg =
 				"This looks like an address but is not exactly 40 hex digits. It is " +
-				to_string(_literal.value().length() - 2) +
+				to_string(xdigits.length() - 2) +
 				" hex digits.";
 		else if (!_literal.passesAddressChecksum())
 		{

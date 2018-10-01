@@ -28,6 +28,7 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <cctype>
 #include <algorithm>
 #include <functional>
 
@@ -648,20 +649,21 @@ bool Literal::looksLikeAddress() const
 	if (!isHexNumber())
 		return false;
 
-	return abs(int(value().length()) - 42) <= 1;
+	int const length = (int) count_if(next(next(begin(value()))), end(value()), [](char c) { return isxdigit(c); });
+	return abs(length - 40) <= 1;
 }
 
 bool Literal::passesAddressChecksum() const
 {
 	solAssert(isHexNumber(), "Expected hex number");
-	return dev::passesAddressChecksum(value(), true);
+	return dev::passesAddressChecksum(boost::erase_all_copy(value(), "_"), true);
 }
 
 string Literal::getChecksummedAddress() const
 {
 	solAssert(isHexNumber(), "Expected hex number");
 	/// Pad literal to be a proper hex address.
-	string address = value().substr(2);
+	string address = boost::erase_all_copy(value(), "_").substr(2);
 	if (address.length() > 40)
 		return string();
 	address.insert(address.begin(), 40 - address.size(), '0');
